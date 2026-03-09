@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "azure-ai-inference>=1.0.0b9",
+    "azure-core>=1.38.2",
     "fastmcp>=3.0.2",
     "mcp-cli>=0.19",
 ]
