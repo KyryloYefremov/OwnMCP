@@ -1,0 +1,13 @@
+{
+    "inputs": [],
+    "servers": {
+        "hello_mcp": {
+            // run uv sync in the venv before launching the server
+            "command": "sh",
+            "args": [
+                "-c",
+                "uv sync && .venv/bin/python ./server.py"
+            ]
+        }
+    }
+}
