@@ -1,51 +1,114 @@
-from mcp.server.fastmcp import FastMCP
+import asyncio
 import logging
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import Tool, TextContent
 
-
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging to stderr (never use stdout for logging in stdio servers)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Demo")
+# Create the server
+server = Server("example-stdio-server")
 
+# Define tools using list_tools and call_tool handlers
+@server.list_tools()
+async def list_tools() -> list[Tool]:
+    """List available tools"""
+    return [
+        Tool(
+            name="add",
+            description="Add two numbers together",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "a": {"type": "number", "description": "First number"},
+                    "b": {"type": "number", "description": "Second number"}
+                },
+                "required": ["a", "b"]
+            }
+        ),
+        Tool(
+            name="multiply",
+            description="Multiply two numbers together",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "a": {"type": "number", "description": "First number"},
+                    "b": {"type": "number", "description": "Second number"}
+                },
+                "required": ["a", "b"]
+            }
+        ),
+        Tool(
+            name="get_greeting",
+            description="Generate a personalized greeting",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Name to greet"}
+                },
+                "required": ["name"]
+            }
+        ),
+        Tool(
+            name="get_server_info",
+            description="Get information about this MCP server",
+            inputSchema={"type": "object", "properties": {}}
+        )
+    ]
 
-@mcp.tool()
-def add(a: int, b: int) -> int:
-    """Add two numbers."""
-    return a + b
+@server.call_tool()
+async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+    """Handle tool calls"""
+    if name == "add":
+        result = arguments["a"] + arguments["b"]
+        logger.info(f"Adding {arguments['a']} + {arguments['b']} = {result}")
+        return [TextContent(type="text", text=str(result))]
+    
+    elif name == "multiply":
+        result = arguments["a"] * arguments["b"]
+        logger.info(f"Multiplying {arguments['a']} * {arguments['b']} = {result}")
+        return [TextContent(type="text", text=str(result))]
+    
+    elif name == "get_greeting":
+        greeting = f"Hello, {arguments['name']}! Welcome to the MCP stdio server."
+        logger.info(f"Generated greeting for {arguments['name']}")
+        return [TextContent(type="text", text=greeting)]
+    
+    elif name == "get_server_info":
+        info = {
+            "server_name": "example-stdio-server",
+            "version": "1.0.0",
+            "transport": "stdio",
+            "capabilities": ["tools"],
+            "description": "Example MCP server using stdio transport (MCP 2025-06-18 specification)"
+        }
+        return [TextContent(type="text", text=str(info))]
+    
+    else:
+        raise ValueError(f"Unknown tool: {name}")
 
-
-@mcp.tool()
-def subtract(a: int, b: int) -> int:
-    """Subtract two numbers."""
-    return a - b
-
-
-@mcp.tool()
-def multiply(a: int, b: int) -> int:
-    """Multiply two numbers."""
-    return a * b
-
-
-@mcp.tool()
-def divide(a: int, b: int) -> float:
-    """Divide two numbers."""
-    if b == 0:
-        raise ValueError("division by zero")
-    return a / b
-
-
-@mcp.tool()
-def help() -> str:
-    """Get help information"""
-    return "This server provides basic arithmetic operations: add, subtract, multiply, divide."
-
-
-@mcp.resource("greeting://{name}")
-def get_greeting(name: str) -> str:
-    """Get a personalized greeting message"""
-    logger.debug(f"Registering resource: greeting://{name}")
-    return f"Hello, {name}!"
-
+async def main():
+    """Main server function using stdio transport"""
+    logger.info("Starting MCP stdio server...")
+    
+    try:
+        # Use stdio transport
+        async with stdio_server() as (read_stream, write_stream):
+            logger.info("Server connected via stdio transport")
+            await server.run(
+                read_stream,
+                write_stream,
+                server.create_initialization_options()
+            )
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        raise
 
 if __name__ == "__main__":
-    mcp.run()
+    asyncio.run(main())
